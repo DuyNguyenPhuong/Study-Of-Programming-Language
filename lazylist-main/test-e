@@ -1,0 +1,2 @@
+#!/bin/sh
+./scheme tester-script.scm "tests-e.scm"

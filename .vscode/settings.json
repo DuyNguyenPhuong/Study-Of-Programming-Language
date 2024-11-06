@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "talloc.h": "c",
+        "linkedlist.h": "c"
+    }
+}

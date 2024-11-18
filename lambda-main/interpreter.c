@@ -9,6 +9,33 @@
 
 #include "object.h"
 
+//  START OF DAVE CODE
+// Helper function to create an Closure object
+Object *makeClosureType(Object *paramNames, Object *functionCode, Frame *frame)
+{
+    Closure *closureObj = (Closure *)talloc(sizeof(Closure));
+    closureObj->type = CLOSURE_TYPE;
+    closureObj->paramNames = paramNames;
+    closureObj->functionCode = functionCode;
+    closureObj->frame = frame;
+    return (Object *)closureObj;
+}
+
+// Helper function to create a Void object
+Object *makeVoidType()
+{
+    Object *obj = (Object *)talloc(sizeof(Object));
+    if (obj == NULL)
+    {
+        printf("Error when talloc a new Void Type");
+        texit(1);
+    }
+    obj->type = VOID_TYPE;
+    return obj;
+}
+
+// END OF DAVE CODE
+
 // Helper function to create a Unspecific object
 Object *makeUnspecificType()
 {
@@ -133,6 +160,12 @@ Object *eval(Object *tree, Frame *frame)
     {
         // Look up and return the symbol's value
         return lookUpSymbol(tree, frame, false);
+    }
+    //  START OF DAVE CODE
+    else if (tree->type == VOID_TYPE)
+    {
+        // What to do?
+        return makeNull();
     }
     else if (tree->type == CONS_TYPE)
     {
@@ -285,11 +318,181 @@ Object *eval(Object *tree, Frame *frame)
                 }
                 return result;
             }
-            // If other expression
+            else if (strcmp(((Symbol *)firstElement)->value, "quote") == 0)
+            {
+                Object *arguments = cdr(tree);
+
+                // Check for too few arguments
+                if (isNull(arguments))
+                {
+                    printf("Evaluation Error: Too few arguments to quote\n");
+                    return evaluationError();
+                }
+                if (!isNull(cdr(arguments)))
+                {
+                    printf("Evaluation Error: Too many arguments to quote\n");
+                    return evaluationError();
+                }
+                Object *expression = car(arguments);
+                return expression;
+            }
+            // START OF DAVE'S CODE
+            else if (strcmp(((Symbol *)firstElement)->value, "define") == 0)
+            {
+                // Take the argument after the define
+                Object *arguments = cdr(tree);
+                // Check that define has exactly two arguments
+                if (isNull(arguments) || isNull(cdr(arguments)) || !isNull(cdr(cdr(arguments))))
+                {
+                    printf("Evaluation Error: Invalid number of arguments to define\n");
+                    return evaluationError();
+                }
+
+                // Set variable and variable expression
+                Object *var = car(arguments);
+                Object *valExpression = car(cdr(arguments));
+
+                // The first argument should be a symbol
+                if (var->type != SYMBOL_TYPE)
+                {
+                    printf("Evaluation Error: First argument of define must be a symbol\n");
+                    return evaluationError();
+                }
+
+                // Check that the symbol is not already defined in the current frame
+                if (lookUpSymbol(var, frame, true)->type != UNSPECIFIED_TYPE)
+                {
+                    printf("Evaluation Error: Variable already defined\n");
+                    return evaluationError();
+                }
+
+                // Evaluate the value expression and bind it to the symbol in the current frame
+                Object *val = eval(valExpression, frame);
+                // Add it to the current frame
+                addBindingHelper(frame, var, val);
+
+                // Return a VOID_TYPE object as the result of the define
+                Object *voidObj = makeVoidType();
+                return voidObj;
+            }
+            else if (strcmp(((Symbol *)firstElement)->value, "lambda") == 0)
+            {
+                // Take the argument after the lambda
+                Object *arguments = cdr(tree);
+                // Check that lambda has at least one argument
+                if (isNull(arguments))
+                {
+                    printf("Evaluation Error: Lambda requires at least one argument\n");
+                    return evaluationError();
+                }
+
+                // Assign parameter list and body
+                Object *paramList = car(arguments);
+                Object *body = cdr(arguments);
+
+                // Ensure Lambda has a body
+                if (isNull(body))
+                {
+                    printf("Evaluation Error: Lambda has no body\n");
+                    return evaluationError();
+                }
+
+                // Ensure that paramList is a list of symbols and there are no repeats
+                Object *currentParam = paramList;
+                Object *previousParams = makeNull();
+                while (!isNull(currentParam))
+                {
+                    if (car(currentParam)->type != SYMBOL_TYPE)
+                    {
+                        printf("Evaluation Error: Parameters must be symbols\n");
+                        return evaluationError();
+                    }
+
+                    Object *tempPreviousParams = previousParams;
+
+                    // Compare to all previous parameter names
+                    while (!isNull(tempPreviousParams))
+                    {
+                        if (strcmp(((Symbol *)car(currentParam))->value, ((Symbol *)car(tempPreviousParams))->value) == 0)
+                        {
+                            printf("Evaluation Error: Duplicate identifier %s \n", ((Symbol *)car(currentParam))->value);
+                            return evaluationError();
+                        }
+
+                        tempPreviousParams = cdr(tempPreviousParams);
+                    }
+
+                    // If no duplicates are found, add new parameter name to list
+                    previousParams = cons(car(currentParam), previousParams);
+
+                    currentParam = cdr(currentParam);
+                }
+
+                // Create the Closure object
+                Object *closure = makeClosureType(paramList, body, frame);
+                return closure;
+            }
             else
             {
-                return makeUnspecificType();
+                Object *function = lookUpSymbol(car(tree), frame, false);
+
+                if (function->type != CLOSURE_TYPE)
+                {
+                    printf("Evaluation Error: Not a function\n");
+                    return evaluationError();
+                }
+
+                // Return evaluation of same code but replacing first symbol with corresponding function
+                return eval(cons(function, cdr(tree)), frame);
             }
+
+            // There may be a way to incorporate code above into section below, as there is some repeat lines
+        }
+        else if (firstElement->type == CLOSURE_TYPE)
+        {
+            Object *function = firstElement;
+
+            Frame *local = createNewFrameFrom(((Closure *)function)->frame);
+            Object *bindingNames = ((Closure *)function)->paramNames;
+            Object *args = cdr(tree);
+
+            // Map args to parameter names
+            while (!isNull(args))
+            {
+                if (isNull(bindingNames))
+                {
+                    printf("Evaluation Error: Too many arguments to function\n");
+                    return evaluationError();
+                }
+
+                // Add binding to new local frame
+                addBindingHelper(local, car(bindingNames), car(args));
+
+                bindingNames = cdr(bindingNames);
+                args = cdr(args);
+            }
+            if (!isNull(bindingNames))
+            {
+                printf("Evaluation Error: Not enough arguments to function\n");
+                return evaluationError();
+            }
+
+            Object *body = ((Closure *)function)->functionCode;
+            Object *result = makeNull();
+
+            // Evaluate every line in body
+            while (!isNull(body))
+            {
+                result = eval(car(body), local);
+                body = cdr(body);
+            }
+            // Return last line's result
+            return result;
+        }
+        else if (firstElement->type == CONS_TYPE)
+        {
+            // Replace the Cons cell with corresponding function and evaluate the whole tree
+            return eval(cons(eval(firstElement, frame), cdr(tree)), frame);
         }
         else
         {
@@ -325,6 +528,11 @@ void printHelper(Object *obj)
     case BOOL_TYPE:
         printf("#%s", ((Boolean *)obj)->value ? "t" : "f");
         break;
+    //  START OF DAVE CODE
+    case CLOSURE_TYPE:
+        printf("#<procedure>");
+        break;
+    // END OF DAVE CODE
     case CONS_TYPE:
     {
         printf("(");           // Start of the list
@@ -359,9 +567,12 @@ void printHelper(Object *obj)
     case UNSPECIFIED_TYPE:
         printf("#<unspecified>");
         break;
+    case VOID_TYPE:
+        return;
+        break;
     default:
         // () open close not null
-        printf("Unknown type");
+        printf("Unknown type ");
         printf("%i", obj->type);
         break;
     }
@@ -390,5 +601,4 @@ void interpret(Object *tree)
 }
 
 // END OF THE CODE
-
 #endif

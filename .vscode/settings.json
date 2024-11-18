@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "talloc.h": "c",
-        "linkedlist.h": "c"
+        "linkedlist.h": "c",
+        "tokenizer.h": "c"
     }
 }

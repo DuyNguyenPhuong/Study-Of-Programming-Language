@@ -1,3 +1,4 @@
+#include "tokenizer.h"
 #include "linkedlist.h"
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +9,64 @@
 #define _INTERPRETER
 
 #include "object.h"
+
+// Helper function to make a Symbol
+Object *makeSymbolNew(char *value)
+{
+    String *newSymbol = talloc(sizeof(Symbol));
+    newSymbol->type = SYMBOL_TYPE;
+    newSymbol->value = talloc(sizeof(char) * (strlen(value) + 1));
+    strcpy(newSymbol->value, value);
+
+    return (Object *)newSymbol;
+}
+
+// Helper function for evaluation errors.
+// Terminates the program in case of an error in evaluation.
+Object *evaluationError()
+{
+    texit(1);
+    return makeNull();
+}
+// Primitive Function: null?
+Object *primitiveNull(Object *args)
+{
+    if (isNull(args) || !isNull(cdr(args)))
+    {
+        // printf("Evaluation error: null? requires exactly one argument.\n");
+        return evaluationError();
+    }
+
+    Object *arg = car(args);
+    printf("Test in primitive Null %d \n", ((Integer *)car(args))->value);
+    if (isNull(arg))
+    {
+        // printf("If null %d \n", ((Integer *)car(args))->value);
+        Boolean *result = talloc(sizeof(Boolean));
+        result->type = BOOL_TYPE;
+        result->value = 1;
+        return (Object *)result;
+    }
+    else
+    {
+        // printf("If not null %d \n", ((Integer *)car(args))->value);
+        Boolean *result = talloc(sizeof(Boolean));
+        result->type = BOOL_TYPE;
+        result->value = 0;
+        return (Object *)result;
+    }
+}
+
+// Object *primitiveNull(Object *args)
+// {
+//     if (length(args) != 1)
+//     {
+//         printf("Evaluation error: null? expects exactly one argument.\n");
+//         return evaluationError();
+//     }
+//     Object *arg = car(args);
+//     return isNull(arg) ? makeBoolean(1) : makeBoolean(0);
+// }
 
 // Helper function to create a Unspecific object
 Object *makeUnspecificType()
@@ -39,14 +98,6 @@ Frame *createNewFrameFrom(Frame *parentFrame)
     newFrame->bindings = makeNull();
 
     return newFrame;
-}
-
-// Helper function for evaluation errors.
-// Terminates the program in case of an error in evaluation.
-Object *evaluationError()
-{
-    texit(1);
-    return makeNull();
 }
 
 // Look up the symbol in frame
@@ -136,7 +187,18 @@ Object *eval(Object *tree, Frame *frame)
     }
     else if (tree->type == CONS_TYPE)
     {
-        Object *firstElement = car(tree);
+        // Object *firstElement = car(tree);
+
+        Object *firstElementRaw = car(tree); // The first element of the cons cell
+        Object *args = cdr(tree);            // The rest of the list (arguments)
+
+        // printf("Test 0 %s \n", ((Symbol *)firstElementRaw)->value);
+        // printf("Test 1 %d \n", ((Object *)car(args))->type);
+
+        // printf("Test 1 %d \n", ((Integer *)car(args))->value);
+
+        // Evaluate the first element to determine the function
+        Object *firstElement = eval(firstElementRaw, frame);
         if (firstElement->type == SYMBOL_TYPE)
         {
             // If expression handling
@@ -291,6 +353,32 @@ Object *eval(Object *tree, Frame *frame)
                 return makeUnspecificType();
             }
         }
+        // If the function is a primitive, evaluate arguments and call it
+        else if (firstElement->type == PRIMITIVE_TYPE)
+        {
+            Primitive *primitive = (Primitive *)firstElement;
+
+            // Evaluate the arguments
+            Object *evaluatedArgs = makeNull();
+            while (!isNull(args))
+            {
+                evaluatedArgs = cons(eval(car(args), frame), evaluatedArgs);
+                // printf("Test in if statement %d \n", ((Integer *)car(args))->value);
+                args = cdr(args);
+            }
+            evaluatedArgs = reverse(evaluatedArgs); // Preserve argument order
+
+            // Check for specific primitive functions and apply them
+            // if (strcmp(((Symbol *)firstElement)->value, "null?") == 0)
+            // {
+            //     // Null? - Check if the argument is an empty list (null)
+            //     Object *arg = car(evaluatedArgs);
+            //     return isNull(arg) ? makeBoolean(1) : makeBoolean(0);
+            // }
+
+            // Call the primitive function
+            return primitive->pf(evaluatedArgs);
+        }
         else
         {
             return makeUnspecificType();
@@ -369,6 +457,34 @@ void printHelper(Object *obj)
     printf("\n");
 }
 
+void initializePrimitives(Frame *frame)
+{
+    Primitive *nullPrimitive = talloc(sizeof(Primitive));
+    nullPrimitive->type = PRIMITIVE_TYPE;
+    nullPrimitive->pf = primitiveNull;
+    addBindingHelper(frame, makeSymbolNew("null?"), (Object *)nullPrimitive);
+
+    //     Primitive *plusPrimitive = talloc(sizeof(Primitive));
+    //     plusPrimitive->type = PRIMITIVE_TYPE;
+    //     plusPrimitive->pf = primitivePlus;
+    //     addBindingHelper(frame, makeSymbol("+"), (Object *)plusPrimitive);
+
+    //     Primitive *consPrimitive = talloc(sizeof(Primitive));
+    //     consPrimitive->type = PRIMITIVE_TYPE;
+    //     consPrimitive->pf = primitiveCons;
+    //     addBindingHelper(frame, makeSymbol("cons"), (Object *)consPrimitive);
+
+    //     Primitive *carPrimitive = talloc(sizeof(Primitive));
+    //     carPrimitive->type = PRIMITIVE_TYPE;
+    //     carPrimitive->pf = primitiveCar;
+    //     addBindingHelper(frame, makeSymbol("car"), (Object *)carPrimitive);
+
+    //     Primitive *cdrPrimitive = talloc(sizeof(Primitive));
+    //     cdrPrimitive->type = PRIMITIVE_TYPE;
+    //     cdrPrimitive->pf = primitiveCdr;
+    //     addBindingHelper(frame, makeSymbol("cdr"), (Object *)cdrPrimitive);
+}
+
 // Input tree: A cons cell representing the root of the abstract syntax tree for
 // a Scheme program (which may contain multiple expressions).
 // Evaluates the program, printing the result of each expression in it.
@@ -376,6 +492,16 @@ void interpret(Object *tree)
 {
     // Evaluate the current expression in the global frame
     Frame *globalFrame = createNewFrameFrom(NULL);
+
+    // Create and associate the 'null?' primitive with the global environment
+    Primitive *primNull = talloc(sizeof(Primitive));
+    primNull->type = PRIMITIVE_TYPE;
+    primNull->pf = primitiveNull; // Assign the primitive function
+
+    // Object *symbol = makeSymb();
+    // Object *symbol = makeSymbolNew("null?");
+    // addBindingHelper(globalFrame, symbol, (Object *)primNull);
+    initializePrimitives(globalFrame);
 
     while (!isNull(tree))
     {

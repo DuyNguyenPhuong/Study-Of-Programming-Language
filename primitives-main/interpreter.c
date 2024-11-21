@@ -27,28 +27,37 @@ Object *evaluationError()
     texit(1);
     return makeNull();
 }
+
 // Primitive Function: null?
 Object *primitiveNull(Object *args)
 {
-    if (isNull(args) || !isNull(cdr(args)))
+    // If there is no argument
+    if (isNull(args))
     {
-        // printf("Evaluation error: null? requires exactly one argument.\n");
+        printf("Evaluation error: no arguments supplied to null?\n");
+        return evaluationError();
+    }
+
+    // null? needs to take 1 argument
+    if (!isNull(cdr(args)))
+    {
+        printf("Evaluation error: null? takes one argument\n");
         return evaluationError();
     }
 
     Object *arg = car(args);
-    // printf("Test in primitive Null %d \n", ((Integer *)car(args))->value);
+
+    // If null return Boolean object of true
     if (isNull(arg))
     {
-        // printf("If null %d \n", ((Integer *)car(args))->value);
         Boolean *result = talloc(sizeof(Boolean));
         result->type = BOOL_TYPE;
         result->value = 1;
         return (Object *)result;
     }
+    // Else return Boolean object of false
     else
     {
-        // printf("If not null %d \n", ((Integer *)car(args))->value);
         Boolean *result = talloc(sizeof(Boolean));
         result->type = BOOL_TYPE;
         result->value = 0;
@@ -59,66 +68,98 @@ Object *primitiveNull(Object *args)
 // Primitive car
 Object *primitiveCar(Object *args)
 {
-    if (isNull(args) || !isNull(cdr(args)))
+    // Check if argument is in the right form
+    if (isNull(args))
     {
+        return evaluationError();
+    }
+
+    if (!(isNull(cdr(args))))
+    {
+        printf("Evaluation error: car takes one argument\n");
         return evaluationError();
     }
 
     Object *arg = car(args);
+    // arg needs to be a Constype
     if (arg->type != CONS_TYPE)
     {
+        printf("Evaluation error: car takes a pair\n");
         return evaluationError();
     }
 
-    return car(arg); // Return the first element of the cons cell
+    // Return the first element of the cons cell
+    return car(arg);
 }
 
+// Primitive function: Cdr
 Object *primitiveCdr(Object *args)
 {
-    if (isNull(args) || !isNull(cdr(args)))
+    // Check if args in the right form
+    if (isNull(args))
     {
+        printf("Evaluation error: no arguments supplied to cdr\n");
+        return evaluationError();
+    }
+
+    // Ensure there is exactly one argument
+    if (!isNull(cdr(args)))
+    {
+        printf("Evaluation error: cdr takes a pair\n");
         return evaluationError();
     }
 
     Object *arg = car(args);
+
+    // Check if it is a cons type
     if (arg->type != CONS_TYPE)
     {
         return evaluationError();
     }
 
-    return cdr(arg); // Return the second part of the cons cell
+    // Return the second part of the cons cell
+    return cdr(arg);
 }
 
 Object *primitiveCons(Object *args)
 {
-    // printf("Test 1 cons \n");
-    // if (isNull(args) || !isNull(cdr(args)) || !isNull(cdr(cdr(args))))
-    // {
-    //     return evaluationError();
-    // }
-    if (isNull(args) || isNull(cdr(args)) || !isNull(cdr(cdr(args))))
+    // Check tghe args if it is a correct form
+    if (isNull(args))
     {
-        return evaluationError(); // Error if the argument list is not exactly two items
+        printf("Evaluation error: no arguments supplied to cons.\n");
+        return evaluationError();
     }
 
-    // printf("Test 2 cons \n");
+    if (isNull(cdr(args)))
+    {
+        printf("Evaluation error: cons takes two arguments, only one supplied.\n");
+        return evaluationError();
+    }
+
+    // Check if the argument list is not exactly two items
+    if (!isNull(cdr(cdr(args))))
+    {
+        printf("Evaluation error: cons takes two arguments, three or more supplied.\n");
+        return evaluationError();
+    }
 
     Object *first = car(args);
     Object *second = car(cdr(args));
-
-    // printf("Test 3 cons \n");
 
     // Create and return a new cons cell
     return cons(first, second);
 }
 
+// Primitive Add function
 Object *primitiveAdd(Object *args)
 {
-    double sum = 0.0; // We will always accumulate the sum as a double
-    int isDouble = 0; // Flag to track if we've encountered any double
+    // Create a sum and a boolean check if there is a double
+    double sum = 0.0;
+    int isDouble = 0;
 
+    // Iterate through the arguments
     while (args->type != NULL_TYPE)
-    { // Iterate through the arguments
+    {
         Object *current = car(args);
 
         if (current->type == INT_TYPE)
@@ -128,20 +169,23 @@ Object *primitiveAdd(Object *args)
         }
         else if (current->type == DOUBLE_TYPE)
         {
-            // If it's a Double, add its value to the sum and set the flag
+            // If it's a Double, add its value to the sum
+            // and set the flag
             sum += ((Double *)current)->value;
             isDouble = 1;
         }
         else
         {
             // If the argument is not an Integer or Double, return an error
+            printf("Evaluation error: + must take numbers.\n");
             return evaluationError();
         }
-
-        args = cdr(args); // Move to the next argument
+        // Move to the next argument
+        args = cdr(args);
     }
 
-    // Create a new result object based on whether we encountered a double
+    // Create a new result object based on the flag
+    // If there is a double
     if (isDouble)
     {
         Double *result = talloc(sizeof(Double));
@@ -149,15 +193,16 @@ Object *primitiveAdd(Object *args)
         result->value = sum;
         return (Object *)result;
     }
+    // If there is no a double
     else
     {
         Integer *result = talloc(sizeof(Integer));
         result->type = INT_TYPE;
-        result->value = (int)sum; // Cast to int if no Doubles were involved
+        // Cast to int
+        result->value = (int)sum;
         return (Object *)result;
     }
 }
-
 //  START OF DAVE CODE
 // Helper function to create an Closure object
 Object *makeClosureType(Object *paramNames, Object *functionCode, Frame *frame)
@@ -182,8 +227,6 @@ Object *makeVoidType()
     obj->type = VOID_TYPE;
     return obj;
 }
-
-// END OF DAVE CODE
 
 // Helper function to create a Unspecific object
 Object *makeUnspecificType()
@@ -217,20 +260,13 @@ Frame *createNewFrameFrom(Frame *parentFrame)
     return newFrame;
 }
 
-// Helper function for evaluation errors.
-// Terminates the program in case of an error in evaluation.
-// Object *evaluationError()
-// {
-//     texit(1);
-//     return makeNull();
-// }
-
 // Look up the symbol in frame
 // each frame will have a linked lists of bindings
 // Each item of the list is a binding
 // a bidning is again a linkedlists of size 2 with 1st elemnent a symbol and 2nd value
 Object *lookUpSymbol(Object *symbol, Frame *frame, bool onlyFrame)
 {
+    // printf("Look up the symbol: %s\n", ((Symbol *)symbol)->value);
     while (frame)
     {
         // Check the frame's bindings
@@ -313,67 +349,18 @@ Object *eval(Object *tree, Frame *frame)
     //  START OF DAVE CODE
     else if (tree->type == VOID_TYPE)
     {
-        // What to do?
         return makeNull();
     }
     else if (tree->type == CONS_TYPE)
     {
-        // Object *firstElement = car(tree); // The first element of the cons cell
+        // The first element of the cons cell
+        Object *firstElement = car(tree);
+        // The rest of the list are the arguments
+        Object *args = cdr(tree);
 
-        // printf("Test 1 \n");
-
-        Object *firstElementRaw = car(tree); // The first element of the cons cell
-        Object *args = cdr(tree);            // The rest of the list (arguments)
-
-        // printf("Test 0 %s \n", ((Symbol *)firstElementRaw)->value);
-
-        // Check if the first element is 'quote'
-        if (firstElementRaw->type == SYMBOL_TYPE && strcmp(((Symbol *)firstElementRaw)->value, "quote") == 0)
-        {
-            // printf("Test 1 go in here \n");
-            // If it's 'quote', return the argument as is (do not evaluate)
-            if (isNull(args))
-            {
-                printf("Evaluation Error: Too few arguments to quote\n");
-                return evaluationError();
-            }
-            // Return the argument to quote (without evaluating it)
-            return car(args); // This is the quoted expression
-        }
-
-        // printf("Test 0 %s \n", ((Symbol *)firstElementRaw)->value);
-        // printf("Test 1 %d \n", ((Object *)car(args))->type);
-
-        // printf("Test 1 %d \n", ((Integer *)car(args))->value);
-
-        // Evaluate the first element to determine the function
-        // printf("Test 2 \n");
-        Object *firstElement = makeNull();
-
-        if (strcmp(((Symbol *)firstElementRaw)->value, "let") == 0 ||
-            strcmp(((Symbol *)firstElementRaw)->value, "define") == 0 ||
-            strcmp(((Symbol *)firstElementRaw)->value, "lambda") == 0 ||
-            strcmp(((Symbol *)firstElementRaw)->value, "quote") == 0
-            // ||
-            // strcmp(((Symbol *)firstElementRaw)->value, "if") == 0
-        )
-        {
-            firstElement = firstElementRaw;
-        }
-        else
-        {
-            // printf("not special \n");
-            firstElement = eval(firstElementRaw, frame);
-        }
-
-        // printf("Test 3 \n");
-
+        // Check if the firstElement type is a symbol
         if (firstElement->type == SYMBOL_TYPE)
         {
-            // printf("Test 3 \n");
-
-            // printf("Test 3.5 %s \n", ((Symbol *)firstElement)->value);
-
             // If expression handling
             if (strcmp(((Symbol *)firstElement)->value, "if") == 0)
             {
@@ -428,6 +415,7 @@ Object *eval(Object *tree, Frame *frame)
                 // If condition result is false
                 if (conditionResult->type == BOOL_TYPE && ((Boolean *)conditionResult)->value == 0)
                 {
+                    // printf("Go to false clause \n");
                     // If there is an else clause
                     if (!isNull(elseClause))
                     {
@@ -448,7 +436,6 @@ Object *eval(Object *tree, Frame *frame)
             // Handle let expression
             else if (strcmp(((Symbol *)firstElement)->value, "let") == 0)
             {
-                // printf("Test if go to let \n");
                 // create a new frame
                 Frame *newFrame = createNewFrameFrom(frame);
                 // Get argument, don't take the let
@@ -633,62 +620,47 @@ Object *eval(Object *tree, Frame *frame)
 
                 // Create the Closure object
                 Object *closure = makeClosureType(paramList, body, frame);
+
                 return closure;
             }
             else
             {
+                // Look up the symbol
                 Object *function = lookUpSymbol(car(tree), frame, false);
 
-                if (function->type != CLOSURE_TYPE)
+                // If it is a Closure, returnt the eval
+                if (function->type == CLOSURE_TYPE)
                 {
-                    printf("Evaluation Error: Not a function\n");
-                    return evaluationError();
+                    return eval(cons(function, cdr(tree)), frame);
                 }
+                // If it is a Primitive, eval the argument and pass the function pointer
+                else if (function->type == PRIMITIVE_TYPE)
+                {
+                    Object *argsPrimitive = cdr(tree);
 
-                // Return evaluation of same code but replacing first symbol with corresponding function
-                return eval(cons(function, cdr(tree)), frame);
+                    // Evaluate the arguments
+                    Object *evaluatedArgs = makeNull();
+                    // TRY TO EDIT THIS
+                    while (!isNull(argsPrimitive))
+                    {
+                        Object *evalSingleArgs = eval(car(argsPrimitive), frame);
+                        evaluatedArgs = cons(evalSingleArgs, evaluatedArgs);
+                        argsPrimitive = cdr(argsPrimitive);
+                    }
+                    // Reverse to preserve argument order
+                    evaluatedArgs = reverse(evaluatedArgs);
+
+                    // Call the function pointer
+                    Object *result = ((Primitive *)function)->pf(evaluatedArgs);
+                    return result;
+                }
+                else
+                {
+                    return makeNull();
+                }
             }
-
-            // There may be a way to incorporate code above into section below, as there is some repeat lines
         }
-        // If the function is a primitive, evaluate arguments and call it
-        else if (firstElement->type == PRIMITIVE_TYPE)
-        {
-            // printf("Test 12 \n");
-
-            Primitive *primitive = (Primitive *)firstElement;
-
-            // printf("Test 13 \n");
-
-            // Evaluate the arguments
-            Object *evaluatedArgs = makeNull();
-
-            // printf("Test 14 \n");
-
-            while (!isNull(args))
-            {
-                // printf("Test 15 \n");
-
-                // printf("Test in if statement %d \n", ((Object *)car(car(args)))->type);
-                // printf("Test in if statement %d \n", ((Integer *)(car(args)))->value);
-
-                evaluatedArgs = cons(eval(car(args), frame), evaluatedArgs);
-                args = cdr(args);
-            }
-            // printf("Test 16 \n");
-
-            evaluatedArgs = reverse(evaluatedArgs); // Preserve argument order
-
-            // printf("Test 17 \n");
-
-            // Call the primitive function
-            // return primitive->pf(evaluatedArgs);
-            Object *test = primitive->pf(evaluatedArgs);
-            // printf("Test 18 \n");
-
-            // printf("Test 16 type of test is %d \n", ((Object *)test)->type);
-            return test;
-        }
+        // If it is a Closure
         else if (firstElement->type == CLOSURE_TYPE)
         {
             Object *function = firstElement;
@@ -707,7 +679,7 @@ Object *eval(Object *tree, Frame *frame)
                 }
 
                 // Add binding to new local frame
-                addBindingHelper(local, car(bindingNames), car(args));
+                addBindingHelper(local, car(bindingNames), eval(car(args), frame));
 
                 bindingNames = cdr(bindingNames);
                 args = cdr(args);
@@ -735,6 +707,26 @@ Object *eval(Object *tree, Frame *frame)
             // Replace the Cons cell with corresponding function and evaluate the whole tree
             return eval(cons(eval(firstElement, frame), cdr(tree)), frame);
         }
+        // if the first elemnt is primitive
+        else if (firstElement->type == PRIMITIVE_TYPE)
+        {
+            Object *args_Primitives = cdr(tree);
+
+            // Evaluate the arguments
+            Object *evaluatedArgs = makeNull();
+            while (!isNull(args_Primitives))
+            {
+                Object *evalSingleArgs = eval(car(args_Primitives), frame);
+                evaluatedArgs = cons(evalSingleArgs, evaluatedArgs);
+                args_Primitives = cdr(args_Primitives);
+            }
+            // Reverse to preserve argument order
+            evaluatedArgs = reverse(evaluatedArgs);
+
+            Object *result = ((Primitive *)firstElement)->pf(evaluatedArgs);
+
+            return result;
+        }
         else
         {
             return makeUnspecificType();
@@ -745,6 +737,70 @@ Object *eval(Object *tree, Frame *frame)
         printf("Evaluation error\n");
         return evaluationError();
     }
+}
+
+// Primitive Map function
+Object *primitiveMap(Object *args)
+{
+    // Check the arg so that map requires exactly two arguments
+    if (isNull(args) || isNull(cdr(args)) || !isNull(cdr(cdr(args))))
+    {
+        return evaluationError();
+    }
+
+    // Extract the procedure and the list
+    Object *proc = car(args);
+    Object *list = car(cdr(args));
+
+    // Check list type
+    if (list->type != CONS_TYPE && !isNull(list))
+    {
+        return evaluationError();
+    }
+
+    // Contruct the result
+    Object *result = makeNull();
+
+    // Iterate through the input list
+    while (!isNull(list))
+    {
+        Object *firstElement = car(list);
+        Object *evaluatedElement = makeNull();
+
+        // If it is closure call eval on the rest
+        if (proc->type == CLOSURE_TYPE)
+        {
+            evaluatedElement = eval(cons(proc, cons(car(list), makeNull())), ((Closure *)proc)->frame);
+        }
+        // If the procedure is a primitive, call it directly
+        else if (proc->type == PRIMITIVE_TYPE)
+        {
+            Object *argsForPrimitive = cons(firstElement, makeNull());
+            evaluatedElement = (*(((Primitive *)proc)->pf))(argsForPrimitive);
+        }
+        // If it's neither a closure nor a primitive, it's an error
+        else
+        {
+            return evaluationError();
+        }
+
+        // if evaluatedElement is Null there is some error
+        if (isNull(evaluatedElement))
+        {
+            return evaluationError();
+        }
+
+        // Add the evaluated element to the result
+        result = cons(evaluatedElement, result);
+
+        // Move to the next element in the list
+        list = cdr(list);
+    }
+
+    // Reverse the result list to preserve order
+    result = reverse(result);
+
+    return result;
 }
 
 // Input list: A ConsCell that is the head of a list.
@@ -773,7 +829,6 @@ void printHelper(Object *obj)
     case CLOSURE_TYPE:
         printf("#<procedure>");
         break;
-    // END OF DAVE CODE
     case CONS_TYPE:
     {
         printf("(");           // Start of the list
@@ -821,6 +876,7 @@ void printHelper(Object *obj)
     printf("\n");
 }
 
+// Helper function to inititalize all the primitive function
 void initializePrimitives(Frame *frame)
 {
     Primitive *nullPrimitive = talloc(sizeof(Primitive));
@@ -847,6 +903,11 @@ void initializePrimitives(Frame *frame)
     cdrPrimitive->type = PRIMITIVE_TYPE;
     cdrPrimitive->pf = primitiveCdr;
     addBindingHelper(frame, makeSymbolNew("cdr"), (Object *)cdrPrimitive);
+
+    Primitive *mapPrimitive = talloc(sizeof(Primitive));
+    mapPrimitive->type = PRIMITIVE_TYPE;
+    mapPrimitive->pf = primitiveMap;
+    addBindingHelper(frame, makeSymbolNew("map"), (Object *)mapPrimitive);
 }
 
 // Input tree: A cons cell representing the root of the abstract syntax tree for
@@ -857,6 +918,7 @@ void interpret(Object *tree)
     // Evaluate the current expression in the global frame
     Frame *globalFrame = createNewFrameFrom(NULL);
 
+    // Call initialize the primitive
     initializePrimitives(globalFrame);
 
     while (!isNull(tree))
@@ -872,4 +934,6 @@ void interpret(Object *tree)
 }
 
 // END OF THE CODE
+// END OF THE PROGRAMING PROJECT! NICE!
+// Dave
 #endif

@@ -5,7 +5,7 @@ It includes all the necessary configuration to run the environment inside a **Do
 
 ---
 
-## 🧠 Project Overview
+## Project Overview
 
 We are **recreating a Scheme-inspired programming language**, implemented in **C**.  
 The goal is to explore how interpreters and language runtimes work, including:
@@ -19,7 +19,7 @@ This language aims to capture the **minimal core of Scheme** while being built f
 
 ---
 
-## 🧩 Key Features (Planned / Implemented)
+## Key Features (Planned / Implemented)
 
 - Basic REPL (Read–Eval–Print Loop)
 - Tokenizer and recursive-descent parser
@@ -31,7 +31,7 @@ This language aims to capture the **minimal core of Scheme** while being built f
 
 ---
 
-## 🐳 Development Environment (Docker + VS Code)
+## Development Environment (Docker + VS Code)
 
 This project is pre-configured to run in a **Dockerized VS Code environment**, so you don’t have to install compilers or dependencies manually.
 
